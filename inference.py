@@ -33,7 +33,7 @@ def main():
         "Qwen/Qwen-Image-2512",
         torch_dtype=torch.bfloat16,
     )
-    pipe.enable_model_cpu_offload(gpu_id=args.gpu)
+    pipe.enable_sequential_cpu_offload(gpu_id=args.gpu)
     if hasattr(pipe, "enable_attention_slicing"):
         pipe.enable_attention_slicing()
     if hasattr(pipe, "vae"):
