@@ -33,7 +33,7 @@ def main():
         "Qwen/Qwen-Image-2512",
         torch_dtype=torch.bfloat16,
     )
-    pipe.enable_sequential_cpu_offload(gpu_id=args.gpu)
+    pipe.enable_model_cpu_offload(gpu_id=args.gpu)
     if hasattr(pipe, "enable_attention_slicing"):
         pipe.enable_attention_slicing()
     if hasattr(pipe, "vae"):
@@ -47,9 +47,9 @@ def main():
     image = pipe(
         prompt=args.prompt,
         negative_prompt="low resolution, low quality, blurry, distorted face, deformed body, bad anatomy, artificial looking skin",
-        width=1328,
-        height=1328,
-        num_inference_steps=50,
+        width=1024,
+        height=1024,
+        num_inference_steps=20,
         true_cfg_scale=4.0,
         generator=torch.Generator(device=device).manual_seed(42),
     ).images[0]
