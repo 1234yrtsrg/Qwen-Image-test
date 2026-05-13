@@ -1,6 +1,8 @@
 import argparse
 import os
 
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 import torch
 from diffusers import QwenImagePipeline
 
@@ -30,7 +32,10 @@ def main():
     pipe = QwenImagePipeline.from_pretrained(
         "Qwen/Qwen-Image-2512",
         torch_dtype=torch.bfloat16,
-    ).to(device)
+    )
+    pipe.enable_model_cpu_offload(gpu_id=args.gpu)
+    if hasattr(pipe, "enable_attention_slicing"):
+        pipe.enable_attention_slicing()
 
     output_dir = os.path.dirname(args.output)
     if output_dir:
