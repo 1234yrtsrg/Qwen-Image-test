@@ -15,15 +15,17 @@ def parse_args():
     parser.add_argument("--prompt", type=str, required=True, help="Edit instruction.")
     parser.add_argument("--output", type=str, required=True, help="Path to save the edited image.")
     parser.add_argument("--model", type=str, default="Qwen/Qwen-Image-Edit-2511", help="Model id or local model path.")
-    parser.add_argument("--steps", type=int, default=20, help="Number of inference steps.")
+    parser.add_argument("--steps", type=int, default=10, help="Number of inference steps.")
+    parser.add_argument("--width", type=int, default=768, help="Output width.")
+    parser.add_argument("--height", type=int, default=768, help="Output height.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--true-cfg-scale", type=float, default=4.0, help="True CFG scale.")
     parser.add_argument("--guidance-scale", type=float, default=1.0, help="Guidance scale.")
     parser.add_argument(
         "--offload",
         choices=["model", "sequential", "none"],
-        default="model",
-        help="Memory strategy. Use 'none' for speed on large GPUs, 'sequential' if 'model' OOMs.",
+        default="sequential",
+        help="Memory strategy. Use 'none' for speed on large GPUs, 'model' for medium memory, 'sequential' for 32GB GPUs.",
     )
     return parser.parse_args()
 
@@ -78,6 +80,8 @@ def main():
         "image": [input_image],
         "prompt": args.prompt,
         "negative_prompt": " ",
+        "width": args.width,
+        "height": args.height,
         "num_inference_steps": args.steps,
         "true_cfg_scale": args.true_cfg_scale,
         "guidance_scale": args.guidance_scale,
