@@ -1,11 +1,16 @@
 import argparse
+import math
 import os
 
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
-from diffusers import QwenImageEditPlusPipeline
+from diffusers import FlowMatchEulerDiscreteScheduler, QwenImageEditPlusPipeline
 from PIL import Image, ImageOps
+
+
+LIGHTNING_LORA_ID = "lightx2v/Qwen-Image-Edit-2511-Lightning"
+LIGHTNING_LORA_WEIGHT = "Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors"
 
 
 def parse_args():
@@ -15,12 +20,13 @@ def parse_args():
     parser.add_argument("--prompt", type=str, required=True, help="Edit instruction.")
     parser.add_argument("--output", type=str, required=True, help="Path to save the edited image.")
     parser.add_argument("--model", type=str, default="Qwen/Qwen-Image-Edit-2511", help="Model id or local model path.")
-    parser.add_argument("--steps", type=int, default=10, help="Number of inference steps.")
+    parser.add_argument("--steps", type=int, default=4, help="Number of inference steps.")
     parser.add_argument("--width", type=int, default=768, help="Output width.")
     parser.add_argument("--height", type=int, default=768, help="Output height.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
-    parser.add_argument("--true-cfg-scale", type=float, default=4.0, help="True CFG scale.")
+    parser.add_argument("--true-cfg-scale", type=float, default=1.0, help="True CFG scale.")
     parser.add_argument("--guidance-scale", type=float, default=1.0, help="Guidance scale.")
+    parser.add_argument("--no-lightning", action="store_true", help="Disable Lightning LoRA acceleration.")
     parser.add_argument(
         "--offload",
         choices=["model", "sequential", "none"],
@@ -55,10 +61,39 @@ def main():
 
     input_image = load_image(args.image)
 
+    scheduler_config = {
+        "base_image_seq_len": 256,
+        "base_shift": math.log(3),
+        "invert_sigmas": False,
+        "max_image_seq_len": 8192,
+        "max_shift": math.log(3),
+        "num_train_timesteps": 1000,
+        "shift": 1.0,
+        "shift_terminal": None,
+        "stochastic_sampling": False,
+        "time_shift_type": "exponential",
+        "use_beta_sigmas": False,
+        "use_dynamic_shifting": True,
+        "use_exponential_sigmas": False,
+        "use_karras_sigmas": False,
+    }
+    scheduler = FlowMatchEulerDiscreteScheduler.from_config(scheduler_config)
+
     pipeline = QwenImageEditPlusPipeline.from_pretrained(
         args.model,
+        scheduler=scheduler,
         torch_dtype=torch.bfloat16,
     )
+    if not args.no_lightning:
+        try:
+            pipeline.load_lora_weights(LIGHTNING_LORA_ID, weight_name=LIGHTNING_LORA_WEIGHT)
+        except ValueError as exc:
+            if "PEFT backend is required" in str(exc):
+                raise RuntimeError(
+                    "Loading the Lightning LoRA requires the `peft` package. "
+                    "Install it with: pip install peft"
+                ) from exc
+            raise
     pipeline.set_progress_bar_config(disable=None)
 
     if args.offload == "none":
